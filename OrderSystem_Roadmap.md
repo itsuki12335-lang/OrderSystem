@@ -123,16 +123,19 @@ OrderSystem/
      `DuplicateEntityError(id)`, `ProductNotFoundError(productId)`, `CustomerNotFoundError(customerId)`, `OrderNotFoundError(orderId)`, `EmptyOrderError()`, `InvalidQuantityError(productId, quantity)`, `OutOfStockError(productId, requested, available)`, `InsufficientBalanceError(customerId, required, available)`, `InvalidDiscountError(code, reason)`, `InvalidOrderTransitionError(orderId, from, action)`, `PaymentFailedError(reason, retryable: boolean)`, `PaymentTimeoutError(timeoutMs)`, `UnknownPaymentMethodError(name)`, `ShippingFailedError(reason)`, `RefundWindowExpiredError(orderId, windowDays)`, `IdempotencyConflictError(requestId)`.
 
 6. **`repository/IRepository.ts`**:
+
    ```ts
    export interface IRepository<T extends Entity> {
-     add(item: T): void;                       // id trùng → throw DuplicateEntityError
+     add(item: T): void; // id trùng → throw DuplicateEntityError
      findById(id: string): T | null;
      findAll(): T[];
      update(id: string, patch: UpdatePatch<T>): boolean; // không tồn tại → false
      delete(id: string): boolean;
      filter(predicate: (item: T) => boolean): T[];
    }
-   export type UpdatePatch<T extends Entity> = Partial<Omit<T, "id" | "createdAt">>;
+   export type UpdatePatch<T extends Entity> = Partial<
+     Omit<T, "id" | "createdAt">
+   >;
    ```
 
 7. **`repository/InMemoryRepository.ts`** — `class InMemoryRepository<T extends Entity> implements IRepository<T>` (bắt buộc có từ khóa `implements`):
@@ -143,6 +146,7 @@ OrderSystem/
    - `filter`: gọi `predicate` trên bản clone, không trên object gốc.
 
 ✅ **Test Phase 1** (`Repository.test.ts`) — dùng một entity giả `{id, createdAt, updatedAt, name}`:
+
 - `add` rồi `findById` trả đúng dữ liệu; `add` trùng id → throw `DuplicateEntityError` và số lượng không đổi.
 - Sửa object trả về từ `findById` **không** làm thay đổi dữ liệu trong repo; sửa object truyền vào `add` sau khi add cũng không ảnh hưởng.
 - `update` chỉ đổi đúng field truyền vào; cố truyền `id` hoặc `createdAt` trong patch (ép kiểu bằng `as`) → hai field này không đổi; `updatedAt` đổi theo `FakeClock`.
@@ -177,7 +181,7 @@ OrderSystem/
 
 4. **`models/Order.ts`** — `Order implements Entity`. Field:
    `id, requestId, customerId, items: readonly OrderItem[], subtotal, discountCode: string | null, discountAmount, shippingFee, total, paymentMethodName: string, status: OrderStatus, paymentId: string | null, trackingCode: string | null, paidAt: Date | null, deliveredAt: Date | null, failureReason: string | null, createdAt, updatedAt`.
-   - Order **lưu mọi dữ liệu của vòng đời** (paymentId, trackingCode, paidAt, deliveredAt) ngay trên chính nó. Đây là quy tắc quan trọng cho Phase 3: các State là đối tượng *không giữ dữ liệu riêng*, chỉ đọc/ghi dữ liệu trên Order.
+   - Order **lưu mọi dữ liệu của vòng đời** (paymentId, trackingCode, paidAt, deliveredAt) ngay trên chính nó. Đây là quy tắc quan trọng cho Phase 3: các State là đối tượng _không giữ dữ liệu riêng_, chỉ đọc/ghi dữ liệu trên Order.
    - Constructor nhận một object options (`OrderOptions`) thay vì 15 tham số rời. Mặc định `status = PENDING`, các field nullable = `null`.
    - Method thuần tính toán: `static computeTotal(subtotal, discountAmount, shippingFee): number` = `subtotal - discountAmount + shippingFee`, và luôn `>= 0`.
 
@@ -191,13 +195,13 @@ OrderSystem/
 
 ### 🎯 Bảng chuyển trạng thái hợp lệ (viết test cho TỪNG ô trong bảng)
 
-| Trạng thái hiện tại | `pay` | `ship` | `deliver` | `cancel` | `refund` | `fail` |
-|---|---|---|---|---|---|---|
-| PENDING | → PAID | ✗ | ✗ | → CANCELLED | ✗ | → FAILED |
-| PAID | ✗ | → SHIPPED | ✗ | → CANCELLED | ✗ | ✗ |
-| SHIPPED | ✗ | ✗ | → DELIVERED | ✗ | ✗ | ✗ |
-| DELIVERED | ✗ | ✗ | ✗ | ✗ | → REFUNDED | ✗ |
-| CANCELLED / REFUNDED / FAILED | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| Trạng thái hiện tại           | `pay`  | `ship`    | `deliver`   | `cancel`    | `refund`   | `fail`   |
+| ----------------------------- | ------ | --------- | ----------- | ----------- | ---------- | -------- |
+| PENDING                       | → PAID | ✗         | ✗           | → CANCELLED | ✗          | → FAILED |
+| PAID                          | ✗      | → SHIPPED | ✗           | → CANCELLED | ✗          | ✗        |
+| SHIPPED                       | ✗      | ✗         | → DELIVERED | ✗           | ✗          | ✗        |
+| DELIVERED                     | ✗      | ✗         | ✗           | ✗           | → REFUNDED | ✗        |
+| CANCELLED / REFUNDED / FAILED | ✗      | ✗         | ✗           | ✗           | ✗          | ✗        |
 
 (✗ = throw `InvalidOrderTransitionError(order.id, order.status, tênHànhĐộng)`)
 
@@ -242,15 +246,27 @@ OrderSystem/
    - `FreeShippingAboveThreshold(threshold, baseFee)`: `subtotal >= threshold` → 0, ngược lại `baseFee`.
 
 3. **`strategies/PaymentMethod.ts`** — thanh toán là một Strategy có 3 thao tác:
+
    ```ts
-   export interface PaymentResult { paymentId: string }
+   export interface PaymentResult {
+     paymentId: string;
+   }
    export interface PaymentMethod {
-     readonly name: string;                                 // "WALLET" | "CARD"
-     validate(customer: Customer, amount: number): void;    // CHỈ ĐỌC, throw nếu không thể trả
-     charge(customer: Customer, amount: number, idempotencyKey: string): Promise<PaymentResult>;
-     refund(customer: Customer, amount: number, paymentId: string): Promise<void>;
+     readonly name: string; // "WALLET" | "CARD"
+     validate(customer: Customer, amount: number): void; // CHỈ ĐỌC, throw nếu không thể trả
+     charge(
+       customer: Customer,
+       amount: number,
+       idempotencyKey: string,
+     ): Promise<PaymentResult>;
+     refund(
+       customer: Customer,
+       amount: number,
+       paymentId: string,
+     ): Promise<void>;
    }
    ```
+
    - `WalletPaymentMethod`: `validate` kiểm tra `canAfford` (không đủ → `InsufficientBalanceError`); `charge` gọi `customer.debit` (sync bên trong nhưng trả Promise) và trả `paymentId` dạng `WAL-<idempotencyKey>`; `refund` gọi `customer.credit`. Lưu ý: vì `Customer` là bản sao lấy từ repo, phương thức này **không tự lưu repo** — service chịu trách nhiệm lưu (xem Phase 6).
    - `CardPaymentMethod(gateway: PaymentGateway)`: `validate` không làm gì (cổng ngoài quyết định); `charge` gọi `gateway.charge(...)`; `refund` gọi `gateway.refund(...)`.
    - `PaymentGateway` được định nghĩa ở Phase 5.
@@ -266,13 +282,18 @@ OrderSystem/
 ### 🎯 Các bước thực hiện:
 
 1. **`infra/PaymentGateway.ts`**:
+
    ```ts
    export interface PaymentGateway {
-     charge(amount: number, idempotencyKey: string): Promise<{ paymentId: string }>;
+     charge(
+       amount: number,
+       idempotencyKey: string,
+     ): Promise<{ paymentId: string }>;
      refund(paymentId: string, amount: number): Promise<void>;
      getChargeStatus(idempotencyKey: string): Promise<PaymentStatus>; // SUCCESS | FAILED | UNKNOWN
    }
    ```
+
    - `FakePaymentGateway implements PaymentGateway`, nhận `sleep: (ms: number) => Promise<void>` qua constructor (test truyền hàm trả Promise tức thời) và có thể cấu hình:
      - `setLatency(ms)`: độ trễ mỗi lần gọi.
      - `failNext(times: number, error: PaymentFailedError)`: N lần gọi `charge` kế tiếp ném lỗi này (dùng để mô phỏng lỗi tạm thời `retryable: true` hoặc lỗi vĩnh viễn `retryable: false`).
@@ -284,15 +305,20 @@ OrderSystem/
 2. **`infra/ShippingApi.ts`**: `interface ShippingApi { createShipment(orderId: string): Promise<{ trackingCode: string }> }`; `FakeShippingApi` có `failNext(times, error: ShippingFailedError)` và `setLatency`.
 
 3. **`infra/CompensationStack.ts`** — ngăn xếp hoàn tác:
+
    ```ts
    export class CompensationStack {
      push(label: string, undo: () => Promise<void> | void): void;
-     async rollback(): Promise<RollbackReport>;   // chạy NGƯỢC thứ tự push
-     clear(): void;                               // gọi khi toàn bộ luồng thành công
+     async rollback(): Promise<RollbackReport>; // chạy NGƯỢC thứ tự push
+     clear(): void; // gọi khi toàn bộ luồng thành công
      size(): number;
    }
-   export interface RollbackReport { succeeded: string[]; failed: { label: string; error: unknown }[] }
+   export interface RollbackReport {
+     succeeded: string[];
+     failed: { label: string; error: unknown }[];
+   }
    ```
+
    - `rollback()` chạy từng `undo` theo thứ tự **ngược**; nếu một `undo` ném lỗi thì **vẫn tiếp tục** chạy các `undo` còn lại, ghi lỗi vào `failed`, không ném ra ngoài.
    - Sau `rollback()` ngăn xếp rỗng.
 
@@ -332,6 +358,7 @@ OrderSystem/
 ### 🎯 Thuật toán `placeOrder` (làm đúng thứ tự)
 
 **// ===== VALIDATE ===== (chỉ đọc, không thay đổi gì)**
+
 - V1. `req.items` rỗng → throw `EmptyOrderError`.
 - V2. Gộp các dòng trùng `productId` (cộng dồn số lượng). Mỗi `quantity` phải là số nguyên dương, nếu không → `InvalidQuantityError`.
 - V3. `customerRepo.findById` → `null` thì `CustomerNotFoundError`.
@@ -342,6 +369,7 @@ OrderSystem/
 - V8. `paymentMethod.validate(customer, total)` (ví: không đủ tiền → `InsufficientBalanceError`).
 
 **// ===== MUTATE =====** (tạo `const undo = new CompensationStack()`; toàn bộ khối bọc `try { ... } catch (e) { await undo.rollback(); ...; throw e; }`)
+
 - M1. **Reserve hàng** cho từng sản phẩm: lấy lại product từ repo, `product.reserve(qty)`, `productRepo.update(...)` lưu `reservedStock`. Sau mỗi sản phẩm `undo.push("release-stock:<id>", () => release + lưu lại)`. **Toàn bộ M1 và M2 phải chạy đồng bộ, không có `await` nào trước khi reserve xong** (lý do ở Phase 8).
 - M2. Tạo `Order` với `status = PENDING`, `id = ids.next("ORDER")`, các số tiền ở V7; `orderRepo.add(order)`; `undo.push("fail-order", () => đổi đơn sang FAILED bằng state.fail(order, reason) và lưu)`. (Đơn bị lỗi **không bị xóa** để còn lịch sử.)
 - M3. `const result = await paymentMethod.charge(customer, total, order.id)` (dùng `order.id` làm `idempotencyKey`). Với ví: sau khi `charge`, **lưu lại customer** vào `customerRepo`. Ngay sau khi charge thành công: `undo.push("refund-payment", () => paymentMethod.refund(customer, total, result.paymentId) + lưu customer)`.
@@ -353,6 +381,7 @@ OrderSystem/
 ### ✅ Test Phase 6 (`OrderService.place.test.ts`)
 
 Dùng `FakeClock`, `SequentialIdGenerator`, `FakePaymentGateway` (latency 0). Mỗi test lỗi **bắt buộc** gọi `snapshot` trước/sau (xem Phase 10) và `expect` hai bản bằng nhau (trừ đơn FAILED đã được tạo ở M2, kiểm tra riêng).
+
 - **Happy path ví**: tồn kho giảm đúng, `reservedStock` về 0, số dư ví giảm đúng `total`, đơn `PAID` có `paymentId`/`paidAt`.
 - **Happy path thẻ**: gateway được gọi đúng 1 lần với `order.id`.
 - **Có mã giảm giá & free-ship**: kiểm tra chi tiết `subtotal / discountAmount / shippingFee / total`.
@@ -398,25 +427,35 @@ Thêm vào `OrderServiceDeps`: `config: { refundWindowDays: number }` (mặc đ�
 ### 🎯 Các bước thực hiện:
 
 1. **`utils/resilience.ts`**:
+
    ```ts
-   export function withTimeout<T>(promise: Promise<T>, ms: number, onTimeout: () => Error): Promise<T>;
+   export function withTimeout<T>(
+     promise: Promise<T>,
+     ms: number,
+     onTimeout: () => Error,
+   ): Promise<T>;
    export interface RetryOptions {
-     retries: number;                   // số lần thử lại (không tính lần đầu)
+     retries: number; // số lần thử lại (không tính lần đầu)
      baseDelayMs: number;
-     factor: number;                    // backoff: delay = baseDelayMs * factor^(lầnThử-1)
+     factor: number; // backoff: delay = baseDelayMs * factor^(lầnThử-1)
      shouldRetry: (error: unknown) => boolean;
-     sleep: (ms: number) => Promise<void>;   // tiêm vào để test không chờ thật
+     sleep: (ms: number) => Promise<void>; // tiêm vào để test không chờ thật
    }
-   export function withRetry<T>(fn: (attempt: number) => Promise<T>, opts: RetryOptions): Promise<T>;
+   export function withRetry<T>(
+     fn: (attempt: number) => Promise<T>,
+     opts: RetryOptions,
+   ): Promise<T>;
    ```
+
    - `withTimeout`: dùng `setTimeout`, **luôn `clearTimeout`** khi promise gốc xong sớm (không để rò timer).
    - `withRetry`: chỉ thử lại khi `shouldRetry(error) === true`; hết số lần thì ném lỗi cuối cùng.
+
 2. **Áp dụng vào bước M3 của `placeOrder`**: gọi `charge` bọc `withRetry(() => withTimeout(charge(...), 3000, () => new PaymentTimeoutError(3000)), { retries: 2, baseDelayMs: 200, factor: 2, shouldRetry: lỗi là PaymentFailedError có retryable === true HOẶC là PaymentTimeoutError, sleep })`. `sleep` và các hằng số này đưa vào `config` để test ghi đè.
 3. **Timeout không có nghĩa là thất bại** (bài học quan trọng): khi gặp `PaymentTimeoutError` sau khi hết lượt retry, **không rollback ngay**. Trước tiên gọi `gateway.getChargeStatus(order.id)`:
    - `SUCCESS` → coi như đã thanh toán, lấy paymentId, đi tiếp M4 (tuyệt đối không trừ tiền lần nữa; nhờ `idempotencyKey = order.id`).
    - `FAILED` → rollback bình thường.
    - `UNKNOWN` → đơn chuyển `FAILED` với `failureReason = "Không xác định được trạng thái thanh toán — cần đối soát thủ công"`, rollback hàng hóa nhưng **ghi cảnh báo** (event ở Phase 9).
-   Để làm được việc này, thêm `queryStatus(idempotencyKey)` vào interface `PaymentMethod` (ví: luôn trả `UNKNOWN` nếu chưa có giao dịch, hoặc `SUCCESS` nếu đã ghi nhận).
+     Để làm được việc này, thêm `queryStatus(idempotencyKey)` vào interface `PaymentMethod` (ví: luôn trả `UNKNOWN` nếu chưa có giao dịch, hoặc `SUCCESS` nếu đã ghi nhận).
 4. **Idempotency theo `requestId`** (thêm bước V0 ngay đầu khối VALIDATE của `placeOrder`):
    - Tìm đơn đã có cùng `requestId`. Nếu có và **nội dung yêu cầu giống hệt** (cùng customer, cùng items đã gộp, cùng paymentMethod, cùng discountCode) → **trả luôn đơn cũ, không làm gì thêm** (không reserve, không charge).
    - Nếu có cùng `requestId` nhưng nội dung khác → throw `IdempotencyConflictError`.
@@ -435,29 +474,41 @@ Thêm vào `OrderServiceDeps`: `config: { refundWindowDays: number }` (mặc đ�
 ### 🎯 Các bước thực hiện:
 
 1. **`events/TypedEventEmitter.ts`**:
+
    ```ts
    export class TypedEventEmitter<TEvents extends Record<string, unknown>> {
-     on<K extends keyof TEvents>(event: K, handler: (data: TEvents[K]) => void): () => void; // trả hàm hủy đăng ký
-     once<K extends keyof TEvents>(event: K, handler: (data: TEvents[K]) => void): () => void;
-     off<K extends keyof TEvents>(event: K, handler: (data: TEvents[K]) => void): void;
+     on<K extends keyof TEvents>(
+       event: K,
+       handler: (data: TEvents[K]) => void,
+     ): () => void; // trả hàm hủy đăng ký
+     once<K extends keyof TEvents>(
+       event: K,
+       handler: (data: TEvents[K]) => void,
+     ): () => void;
+     off<K extends keyof TEvents>(
+       event: K,
+       handler: (data: TEvents[K]) => void,
+     ): void;
      emit<K extends keyof TEvents>(event: K, data: TEvents[K]): void;
      listenerCount<K extends keyof TEvents>(event: K): number;
    }
    ```
+
    - Bên trong dùng `Map<keyof TEvents, Set<handler>>` (không dùng `Function`/`any`).
    - Constructor nhận `onListenerError?: (event: keyof TEvents, error: unknown) => void`. **Một listener ném lỗi không được làm hỏng các listener khác và không được làm hỏng luồng nghiệp vụ** — `emit` bọc từng handler trong `try/catch` và gọi `onListenerError`.
    - Duyệt trên **bản sao** danh sách handler khi `emit` (để handler tự `off` trong lúc chạy không làm hỏng vòng lặp).
+
 2. **`events/OrderEvents.ts`** — bảng kiểu:
    ```ts
    export interface OrderEvents {
-     ORDER_PLACED:    { orderId: string; customerId: string; total: number };
-     ORDER_PAID:      { orderId: string; paymentId: string };
-     PAYMENT_FAILED:  { orderId: string; reason: string; retryable: boolean };
-     ORDER_SHIPPED:   { orderId: string; trackingCode: string };
+     ORDER_PLACED: { orderId: string; customerId: string; total: number };
+     ORDER_PAID: { orderId: string; paymentId: string };
+     PAYMENT_FAILED: { orderId: string; reason: string; retryable: boolean };
+     ORDER_SHIPPED: { orderId: string; trackingCode: string };
      ORDER_DELIVERED: { orderId: string };
      ORDER_CANCELLED: { orderId: string; refunded: boolean };
-     ORDER_REFUNDED:  { orderId: string; amount: number };
-     LOW_STOCK:       { productId: string; available: number };
+     ORDER_REFUNDED: { orderId: string; amount: number };
+     LOW_STOCK: { productId: string; available: number };
      ROLLBACK_INCOMPLETE: { orderId: string; failedSteps: string[] };
      PAYMENT_STATUS_UNKNOWN: { orderId: string };
    }
@@ -508,11 +559,11 @@ Thêm vào `OrderServiceDeps`: `config: { refundWindowDays: number }` (mặc đ�
 1. Cài `express`, `better-sqlite3` (đồng bộ nên khớp với `IRepository` hiện tại), `zod` (validate input), `supertest` (test API).
 2. **`SqliteRepository<T extends Entity>`** (hoặc một repo cho mỗi bảng: `SqliteProductRepository`, `SqliteCustomerRepository`, `SqliteOrderRepository`) cùng `implements IRepository<T>`. Tạo schema bằng file `schema.sql` (bảng `products`, `customers`, `orders`, `order_items`), dùng khóa chính, khóa ngoại, `CHECK (stock >= 0)`, `CHECK (reserved_stock >= 0 AND reserved_stock <= stock)`, `UNIQUE (request_id)`.
 3. **Chạy lại toàn bộ test của Phase 1** trên `SqliteRepository` (dùng DB `:memory:`): cùng một bộ test hợp đồng (contract test) phải xanh cho cả hai cài đặt. Viết bộ test dưới dạng hàm nhận một factory `() => IRepository<T>`.
-4. **Transaction thật**: tạo `UnitOfWork` có `run<T>(work: () => Promise<T>): Promise<T>` dùng `db.transaction`; phần thay đổi dữ liệu nội bộ của `placeOrder` chạy trong transaction (phần gọi cổng thanh toán ngoài vẫn dùng bù trừ vì không thể rollback hệ thống bên ngoài). Ghi vào README một đoạn giải thích: *vì sao* chỉ dữ liệu nội bộ rollback được bằng transaction còn tiền ở cổng ngoài thì không.
+4. **Transaction thật**: tạo `UnitOfWork` có `run<T>(work: () => Promise<T>): Promise<T>` dùng `db.transaction`; phần thay đổi dữ liệu nội bộ của `placeOrder` chạy trong transaction (phần gọi cổng thanh toán ngoài vẫn dùng bù trừ vì không thể rollback hệ thống bên ngoài). Ghi vào README một đoạn giải thích: _vì sao_ chỉ dữ liệu nội bộ rollback được bằng transaction còn tiền ở cổng ngoài thì không.
 5. **REST API** (`src/api/`): `POST /orders` (body: PlaceOrderRequest, header `Idempotency-Key` ánh xạ sang `requestId`), `GET /orders/:id`, `POST /orders/:id/ship`, `/deliver`, `/cancel`, `/refund`, `GET /customers/:id/orders`, `GET /products/low-stock?threshold=`. Validate input bằng `zod`; ánh xạ lỗi: `*NotFoundError` → 404, `InvalidOrderTransitionError`/`IdempotencyConflictError` → 409, `OutOfStockError`/`InsufficientBalanceError`/`InvalidQuantityError`/`InvalidDiscountError`/`EmptyOrderError` → 422, `PaymentFailedError` → 402, `PaymentTimeoutError` → 504, còn lại 500 (không lộ chi tiết nội bộ).
 6. **Test API** bằng `supertest`: mỗi mã trạng thái HTTP ở trên có ít nhất 1 test; gọi `POST /orders` hai lần cùng `Idempotency-Key` → chỉ một đơn.
-7. *(Tùy chọn)* Ghi chú bài học: nếu chuyển sang driver bất đồng bộ (ví dụ PostgreSQL), `IRepository` phải đổi sang trả `Promise` — đây là chi phí thật của việc chọn interface đồng bộ; ghi lại vào README.
-8. *(Tùy chọn)* Viết lại phần lõi (Phase 1 → 6) bằng Java để so sánh cách hai ngôn ngữ biểu đạt cùng một thiết kế.
+7. _(Tùy chọn)_ Ghi chú bài học: nếu chuyển sang driver bất đồng bộ (ví dụ PostgreSQL), `IRepository` phải đổi sang trả `Promise` — đây là chi phí thật của việc chọn interface đồng bộ; ghi lại vào README.
+8. _(Tùy chọn)_ Viết lại phần lõi (Phase 1 → 6) bằng Java để so sánh cách hai ngôn ngữ biểu đạt cùng một thiết kế.
 
 ---
 

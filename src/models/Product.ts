@@ -30,13 +30,13 @@ export class Product implements Entity {
       throw new InvalidQuantityError(id, price);
     }
     if (!Number.isInteger(price)) {
-      throw new InvalidNum();
+      throw new InvalidNum(price);
     }
     if (stock < 0) {
       throw new InvalidQuantityError(id, stock);
     }
     if (!Number.isInteger(stock)) {
-      throw new InvalidNum();
+      throw new InvalidNum(stock);
     }
     if (reservedStock !== 0) {
       throw new InvalidQuantityError(id, reservedStock);
@@ -83,7 +83,7 @@ export class Product implements Entity {
   */
   reserve(quantity: number): void {
     if (!Number.isInteger(quantity)) {
-      throw new InvalidNum();
+      throw new InvalidNum(quantity);
     }
     if (quantity <= 0) {
       throw new InvalidQuantityError(this.id, quantity);
@@ -101,7 +101,7 @@ export class Product implements Entity {
   */
   release(quantity: number): void {
     if (!Number.isInteger(quantity)) {
-      throw new InvalidNum();
+      throw new InvalidNum(quantity);
     }
     if (quantity > this.reservedStock) {
       throw new InvalidQuantityError(this.id, quantity);
@@ -119,7 +119,7 @@ export class Product implements Entity {
   */
   commit(quantity: number): void {
     if (!Number.isInteger(quantity)) {
-      throw new InvalidNum();
+      throw new InvalidNum(quantity);
     }
     if (quantity <= 0) {
       throw new InvalidQuantityError(this.id, quantity);
@@ -132,7 +132,7 @@ export class Product implements Entity {
   }
   restock(quantity: number): void {
     if (!Number.isInteger(quantity)) {
-      throw new InvalidNum();
+      throw new InvalidNum(quantity);
     }
     if (quantity <= 0) {
       throw new InvalidQuantityError(this.id, quantity);

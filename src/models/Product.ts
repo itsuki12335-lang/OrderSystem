@@ -130,6 +130,8 @@ export class Product implements Entity {
     this.stock -= quantity;
     this.reservedStock -= quantity;
   }
+  /* Hàm này chịu trách nhiệm hoàn hàng lại kho
+   */
   restock(quantity: number): void {
     if (!Number.isInteger(quantity)) {
       throw new InvalidNum(quantity);

@@ -182,7 +182,7 @@ OrderSystem/
 4. **`models/Order.ts`** — `Order implements Entity`. Field:
    `id, requestId, customerId, items: readonly OrderItem[], subtotal, discountCode: string | null, discountAmount, shippingFee, total, paymentMethodName: string, status: OrderStatus, paymentId: string | null, trackingCode: string | null, paidAt: Date | null, deliveredAt: Date | null, failureReason: string | null, createdAt, updatedAt`.
    - Order **lưu mọi dữ liệu của vòng đời** (paymentId, trackingCode, paidAt, deliveredAt) ngay trên chính nó. Đây là quy tắc quan trọng cho Phase 3: các State là đối tượng _không giữ dữ liệu riêng_, chỉ đọc/ghi dữ liệu trên Order.
-   - Constructor nhận một object options (`OrderOptions`) thay vì 15 tham số rời. Mặc định `status = PENDING`, các field nullable = `null`.
+   - Constructor nhận một object options (`OrderOpt   ions`) thay vì 15 tham số rời. Mặc định `status = PENDING`, các field nullable = `null`.
    - Method thuần tính toán: `static computeTotal(subtotal, discountAmount, shippingFee): number` = `subtotal - discountAmount + shippingFee`, và luôn `>= 0`.
 
 ✅ **Test Phase 2** (`Models.test.ts`): mọi method của Product / Customer / OrderItem / Order ở trên, gồm các biên: `qty = 0`, `qty = -1`, `qty = 1.5`, đặt đúng bằng số còn lại, đặt hơn 1 đơn vị, `release` quá mức, `debit` đúng bằng số dư (cho phép, còn 0), `debit` hơn 1đ (lỗi, số dư giữ nguyên), `computeTotal` khi giảm giá bằng đúng tổng.

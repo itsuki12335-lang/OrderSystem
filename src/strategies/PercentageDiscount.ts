@@ -1,0 +1,36 @@
+import { InvalidDiscountError } from "../errors/InvalidDiscountError";
+import { DiscountStrategy } from "./DiscountStrategy";
+export class PercentageDiscount implements DiscountStrategy {
+  code: string;
+  percent: number;
+  maxDiscount?: number;
+  constructor(code: string, percent: number, maxDiscount?: number) {
+    if (percent < 1 || percent > 100) {
+      throw new InvalidDiscountError(code, "Không phù hợp");
+    }
+    if (maxDiscount !== undefined) {
+      if (maxDiscount < 1) {
+        throw new InvalidDiscountError(code, `${maxDiscount} phải lớn hơn 0`);
+      }
+      if (Number.isInteger(maxDiscount) === false) {
+        throw new InvalidDiscountError(code, "Mã giảm giá không hợp lệ");
+      }
+    }
+    if (!Number.isInteger(percent)) {
+      throw new InvalidDiscountError(
+        code,
+        `Phần trăm giảm giá phải là số nguyên`,
+      );
+    }
+    ((this.code = code),
+      (this.percent = percent),
+      (this.maxDiscount = maxDiscount));
+  }
+  calculate(subtotal: number): number {
+    const total = Math.floor((subtotal * this.percent) / 100);
+    if (this.maxDiscount !== undefined) {
+      return Math.min(total, this.maxDiscount);
+    }
+    return total;
+  }
+}

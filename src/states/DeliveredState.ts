@@ -11,10 +11,10 @@ export class DeliveredState implements OrderState {
     throw new InvalidOrderTransitionError(order.id, order.status, "SHIP");
   }
   deliver(order: Order, deliveredAt: Date): void {
-    throw new InvalidOrderTransitionError(order.id, order.status, "DELIVERED");
+    throw new InvalidOrderTransitionError(order.id, order.status, "DELIVER");
   }
   cancel(order: Order): void {
-    throw new InvalidOrderTransitionError(order.id, order.status, "CANCELLED");
+    throw new InvalidOrderTransitionError(order.id, order.status, "CANCEL");
   }
   refund(order: Order): void {
     order.status = OrderStatus.REFUNDED;

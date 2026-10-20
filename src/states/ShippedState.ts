@@ -14,7 +14,7 @@ export class ShippedState implements OrderState {
     order.deliveredAt = deliveredAt;
   }
   cancel(order: Order): void {
-    throw new InvalidOrderTransitionError(order.id, order.status, "CANCELLED");
+    throw new InvalidOrderTransitionError(order.id, order.status, "CANCEL");
   }
   refund(order: Order): void {
     throw new InvalidOrderTransitionError(order.id, order.status, "REFUND");

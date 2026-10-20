@@ -7,7 +7,7 @@ export class Customer implements Entity {
   public readonly id: string;
   public email: string;
   public name: string;
-  public createdAt: Date;
+  public readonly createdAt: Date;
   public updatedAt: Date;
   private walletBalance: number;
   /*

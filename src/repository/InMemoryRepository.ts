@@ -83,7 +83,7 @@ export class InMemoryRepository<T extends Entity> implements IRepository<T> {
     const target = this.items.find((temp) => temp.id === id);
     if (target) {
       for (const [key, value] of Object.entries(patch)) {
-        if (key === "id" || key === "createdAt") {
+        if (key === "id" || key === "createdAt" || value === undefined) {
           continue;
         } else if (value instanceof Date) {
           const newDate = new Date(value);

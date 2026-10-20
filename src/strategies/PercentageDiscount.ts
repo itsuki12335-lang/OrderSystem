@@ -2,9 +2,9 @@ import { InvalidDiscountError } from "../errors/InvalidDiscountError";
 import { InvalidNum } from "../errors/InvalidNum";
 import { DiscountStrategy } from "./DiscountStrategy";
 export class PercentageDiscount implements DiscountStrategy {
-  code: string;
-  percent: number;
-  maxDiscount?: number;
+  readonly code: string;
+  readonly percent: number;
+  readonly maxDiscount?: number;
   constructor(code: string, percent: number, maxDiscount?: number) {
     if (percent < 1 || percent > 100) {
       throw new InvalidDiscountError(code, "Không phù hợp");

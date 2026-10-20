@@ -4,8 +4,12 @@ import { FixedAmountDiscount } from "../src/strategies/FixedAmountDiscount";
 import { DiscountCatalog } from "../src/strategies/DiscountCatalog";
 import { FlatShippingFee } from "../src/strategies/FlatShippingFee";
 import { FreeShippingAboveThreshold } from "../src/strategies/FreeShippingAboveThreshold";
+import { WalletPaymentMethod } from "../src/strategies/WalletPaymentMethod";
+import { CardPaymentMethod } from "../src/strategies/CardPaymentMethod";
+import { Customer } from "../src/models/Customer";
 import { InvalidDiscountError } from "../src/errors/InvalidDiscountError";
 import { InvalidNum } from "../src/errors/InvalidNum";
+import { InsufficientBalanceError } from "../src/errors/InsufficientBalanceError";
 
 describe("Phase 4: Strategies Tests - Discount Strategies & Catalog", () => {
   describe("1. PercentageDiscount Strategy Tests", () => {
@@ -261,6 +265,83 @@ describe("Phase 4: Strategies Tests - Discount Strategies & Catalog", () => {
         expect(shipping.calculate(threshold + 50000)).toBe(0);
         expect(shipping.calculate(1000000)).toBe(0);
       });
+    });
+  });
+
+  describe("6. WalletPaymentMethod Strategy Tests", () => {
+    let walletMethod: WalletPaymentMethod;
+    const now = new Date("2026-01-01T00:00:00.000Z");
+
+    beforeEach(() => {
+      walletMethod = new WalletPaymentMethod();
+    });
+
+    it("Có thuộc tính name bằng WALLET", () => {
+      expect(walletMethod.name).toBe("WALLET");
+    });
+
+    it("validate không ném lỗi khi khách đủ tiền trong ví", () => {
+      const customer = new Customer("c1", "a@test.com", "Cust 1", now, now, 500000);
+      expect(() => walletMethod.validate(customer, 200000)).not.toThrow();
+      expect(() => walletMethod.validate(customer, 500000)).not.toThrow();
+    });
+
+    it("validate ném InsufficientBalanceError khi khách không đủ tiền", () => {
+      const customer = new Customer("c1", "a@test.com", "Cust 1", now, now, 100000);
+      expect(() => walletMethod.validate(customer, 200000)).toThrow(InsufficientBalanceError);
+    });
+
+    it("charge thực hiện trừ ví và trả về paymentId dạng WAL-<idempotencyKey>", async () => {
+      const customer = new Customer("c1", "a@test.com", "Cust 1", now, now, 500000);
+      const result = await walletMethod.charge(customer, 200000, "idem-123");
+
+      expect(customer.getBalance()).toBe(300000);
+      expect(result).toEqual({ paymentId: "WAL-idem-123" });
+    });
+
+    it("refund thực hiện cộng tiền lại vào ví khách hàng", async () => {
+      const customer = new Customer("c1", "a@test.com", "Cust 1", now, now, 300000);
+      await walletMethod.refund(customer, 200000, "WAL-idem-123");
+
+      expect(customer.getBalance()).toBe(500000);
+    });
+  });
+
+  describe("7. CardPaymentMethod Strategy Tests", () => {
+    let cardMethod: CardPaymentMethod;
+    const now = new Date("2026-01-01T00:00:00.000Z");
+
+    beforeEach(() => {
+      cardMethod = new CardPaymentMethod();
+    });
+
+    it("Có thuộc tính name bằng CARD", () => {
+      expect(cardMethod.name).toBe("CARD");
+    });
+
+    it("validate không ném lỗi khi khách đủ điều kiện", () => {
+      const customer = new Customer("c1", "a@test.com", "Cust 1", now, now, 500000);
+      expect(() => cardMethod.validate(customer, 200000)).not.toThrow();
+    });
+
+    it("validate ném InsufficientBalanceError khi không đủ điều kiện", () => {
+      const customer = new Customer("c1", "a@test.com", "Cust 1", now, now, 50000);
+      expect(() => cardMethod.validate(customer, 100000)).toThrow(InsufficientBalanceError);
+    });
+
+    it("charge trừ ví và trả về paymentId dạng CARD-<idempotencyKey>", async () => {
+      const customer = new Customer("c1", "a@test.com", "Cust 1", now, now, 500000);
+      const result = await cardMethod.charge(customer, 200000, "idem-456");
+
+      expect(customer.getBalance()).toBe(300000);
+      expect(result).toEqual({ paymentId: "CARD-idem-456" });
+    });
+
+    it("refund cộng tiền lại vào ví", async () => {
+      const customer = new Customer("c1", "a@test.com", "Cust 1", now, now, 300000);
+      await cardMethod.refund(customer, 200000, "CARD-idem-456");
+
+      expect(customer.getBalance()).toBe(500000);
     });
   });
 });

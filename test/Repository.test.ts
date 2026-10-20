@@ -189,6 +189,17 @@ describe("InMemoryRepository (Phase 1)", () => {
       const success = repo.update("non-existent-id", { name: "Test" });
       expect(success).toBe(false);
     });
+
+    it("Testcase 8b: update bỏ qua các field mang giá trị undefined, không ghi đè dữ liệu cũ", () => {
+      const entity = new DummyEntity("item-1", "Tên Gốc", clock.now(), clock.now());
+      repo.add(entity);
+
+      const success = repo.update("item-1", { name: undefined as any });
+      expect(success).toBe(true);
+
+      const found = repo.findById("item-1");
+      expect(found?.name).toBe("Tên Gốc");
+    });
   });
 
   describe("delete", () => {

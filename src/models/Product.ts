@@ -41,23 +41,15 @@ export class Product implements Entity {
     if (reservedStock !== 0) {
       throw new InvalidQuantityError(id, reservedStock);
     }
-    ((this.id = id),
-      (this.name = name),
-      (this.price = price),
-      (this.stock = stock),
-      (this.reservedStock = reservedStock),
-      (this.createdAt = createdAt),
-      (this.updatedAt = updatedAt));
+    this.id = id;
+    this.name = name;
+    this.price = price;
+    this.stock = stock;
+    this.reservedStock = reservedStock;
+    this.createdAt = createdAt;
+    this.updatedAt = updatedAt;
   }
-  /*
-  Hàm này kiểm tra xem 1 số có phải số nguyên không
-  */
-  checkIsNumber(num: number): boolean {
-    if (Number.isInteger(num)) {
-      return true;
-    }
-    return false;
-  }
+
   /*
   Vì stock là private nên cần hàm getStock
   */

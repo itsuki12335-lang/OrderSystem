@@ -1,4 +1,5 @@
 import { InvalidDiscountError } from "../errors/InvalidDiscountError";
+import { InvalidNum } from "../errors/InvalidNum";
 import { DiscountStrategy } from "./DiscountStrategy";
 export class PercentageDiscount implements DiscountStrategy {
   code: string;
@@ -27,6 +28,9 @@ export class PercentageDiscount implements DiscountStrategy {
       (this.maxDiscount = maxDiscount));
   }
   calculate(subtotal: number): number {
+    if (subtotal < 0) {
+      throw new InvalidNum(subtotal);
+    }
     const total = Math.floor((subtotal * this.percent) / 100);
     if (this.maxDiscount !== undefined) {
       return Math.min(total, this.maxDiscount);

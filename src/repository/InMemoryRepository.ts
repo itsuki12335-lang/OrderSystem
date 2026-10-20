@@ -10,7 +10,7 @@ export class InMemoryRepository<T extends Entity> implements IRepository<T> {
   }
   /* Hàm này chuyển đối tượng từ kiểu object thành prototype . Tức là dùng được method nếu có
    */
-  private getObj(item: any): unknown {
+  private getObj(item: T): unknown {
     const object = { ...item };
     const temp = Object.getPrototypeOf(item);
     return Object.setPrototypeOf(object, temp);
@@ -18,7 +18,7 @@ export class InMemoryRepository<T extends Entity> implements IRepository<T> {
   /* Hàm này hỗ trợ việc chuyển đối tượng từ kiểu object thành prototype với các phân nhóm dữ liệu
      khác nhau
   */
-  private cloneElement(item: any): unknown {
+  private cloneElement(item: T): unknown {
     if (item instanceof Date) {
       return new Date(item);
     }
@@ -76,16 +76,32 @@ export class InMemoryRepository<T extends Entity> implements IRepository<T> {
     return this.items.map((element) => this.clone(element));
   }
   // Cập nhật 1 đối tượng theo id và update thuộc tính mới theo patch
+  // Record<K,V> đóng vai trò như 1 từ điển , ý nghĩa đại khái là
+  // target sẽ có key kiểu string và value kiểu unknown
+  // Dùng khi đã nắm quy luật chung
   update(id: string, patch: Partial<Omit<T, "id" | "createdAt">>): boolean {
     const target = this.items.find((temp) => temp.id === id);
     if (target) {
-      const { id: _id, createdAt: _createdAt, ...validUpdates } = patch as any;
-      Object.assign(target, validUpdates);
+      for (const [key, value] of Object.entries(patch)) {
+        if (key === "id" || key === "createdAt") {
+          continue;
+        } else if (value instanceof Date) {
+          const newDate = new Date(value);
+          (target as Record<string, unknown>)[key] = newDate;
+        } else if (Array.isArray(value)) {
+          (target as Record<string, unknown>)[key] = value.map((element) =>
+            this.cloneElement(element),
+          );
+        } else {
+          (target as Record<string, unknown>)[key] = value;
+        }
+      }
       target.updatedAt = this.clock.now();
       return true;
     }
     return false;
   }
+
   // Xóa 1 đối tượng theo id
   delete(id: string): boolean {
     const target = this.items.findIndex((temp) => temp.id === id);
@@ -105,5 +121,15 @@ export class InMemoryRepository<T extends Entity> implements IRepository<T> {
       }
     }
     return fil;
+  }
+  save(item: T): boolean {
+    const index = this.items.findIndex((temp) => temp.id === item.id);
+    if (index === -1) {
+      return false;
+    }
+    const cloned = this.clone(item);
+    cloned.updatedAt = this.clock.now();
+    this.items[index] = cloned;
+    return true;
   }
 }

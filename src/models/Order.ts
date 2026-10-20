@@ -1,5 +1,6 @@
 import { OrderStatus } from "../enums/OrderStatus";
 import { EmptyOrderError } from "../errors/EmptyOrderError";
+import { InvalidNum } from "../errors/InvalidNum";
 import { Entity } from "./Entity";
 import { OrderItem } from "./OrderItem";
 
@@ -46,6 +47,15 @@ export class Order implements Entity {
     if (options.items.length === 0) {
       throw new EmptyOrderError();
     }
+    if (options.subtotal < 0) {
+      throw new InvalidNum(options.subtotal);
+    }
+    if (options.discountAmount < 0) {
+      throw new InvalidNum(options.discountAmount);
+    }
+    if (options.shippingFee < 0) {
+      throw new InvalidNum(options.shippingFee);
+    }
     this.id = options.id;
     this.requestId = options.requestId;
     this.customerId = options.customerId;
@@ -54,7 +64,11 @@ export class Order implements Entity {
     this.discountCode = options.discountCode;
     this.discountAmount = options.discountAmount;
     this.shippingFee = options.shippingFee;
-    this.total = options.total;
+    this.total = Order.computeTotal(
+      options.subtotal,
+      options.discountAmount,
+      options.shippingFee,
+    );
     this.paymentMethodName = options.paymentMethodName;
     this.status = options.status ?? OrderStatus.PENDING;
     this.paymentId = options.paymentId ?? null;

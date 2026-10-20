@@ -1,4 +1,5 @@
 import { InvalidDiscountError } from "../errors/InvalidDiscountError";
+import { InvalidNum } from "../errors/InvalidNum";
 import { DiscountStrategy } from "./DiscountStrategy";
 
 export class FixedAmountDiscount implements DiscountStrategy {
@@ -15,6 +16,9 @@ export class FixedAmountDiscount implements DiscountStrategy {
     this.amount = amount;
   }
   calculate(subtotal: number): number {
+    if (subtotal < 0) {
+      throw new InvalidNum(subtotal);
+    }
     return Math.min(subtotal, this.amount);
   }
 }
